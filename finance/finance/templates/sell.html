@@ -21,3 +21,10 @@ Sell
     <button class="btn btn-primary" type="submit">Sell</button>
 </form>
 {% endblock %}
+
+<form method="post">
+    {{form.hidden_tag()}}
+    {{form.symbol(class="form-select mx-auto w-auto mb-3")}}
+    {{form.shares(class="form-control mx-auto w-auto mb-3")}}
+    {{ form.submit(class="btn btn-dark") }}
+</form>

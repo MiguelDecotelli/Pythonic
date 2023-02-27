@@ -1,14 +1,12 @@
 import os
-from datetime import datetime
-from cs50 import SQL
-from flask import Flask, flash, redirect, render_template, request, session, url_for
-from flask_session import Session
-from tempfile import mkdtemp
+# from cs50 import SQL
+from flask import flash, redirect, render_template, request, session, url_for
+from flask_login import current_user, login_user, login_required, logout_user
+from finance.forms import LoginForm, RegistrationForm, QuoteForm, BuyForm, SellForm
+from finance.models import User, Portfolio, Transactions
+from finance.my_functions import apology, lookup, usd
+from finance import app, db
 from werkzeug.security import check_password_hash, generate_password_hash
-from helpers import apology, login_required, lookup, usd
-
-# Configuring application.
-app = Flask(__name__)
 
 # Ensuring templates are auto-reloaded.
 app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -16,105 +14,74 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 # Customizing filter.
 app.jinja_env.filters["usd"] = usd
 
-# Configuring session to use filesystem (instead of signed cookies).
-app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = "filesystem"
-Session(app)
-
-# Configuring CS50 Library to use SQLite database.
-db = SQL("sqlite:///finance.db")
-
 # Making sure API key is set.
 if not os.environ.get("API_KEY"):
     raise RuntimeError("API_KEY not set")
 
-
-@app.after_request
-def after_request(response):
-    """Ensure responses aren't cached"""
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Expires"] = 0
-    response.headers["Pragma"] = "no-cache"
-    return response
-
+# @app.after_request
+# def after_request(response):
+#     """Ensure responses aren't cached"""
+#     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+#     response.headers["Expires"] = 0
+#     response.headers["Pragma"] = "no-cache"
+#     return response
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     """Register user"""
+    form = RegistrationForm()
 
-    if request.method == "POST":
+    if form.validate_on_submit():
 
-        # Ensure username was submitted
-        if not request.form.get("username"):
-            return apology("must provide username", 400)
+        user = User(username=form.username.data,
+                    password=form.password.data,
+                    )
+        try:             
+            db.session.add(user)
+            db.session.commit()
+        except Exception:
+            return apology('Username is already taken!')        
 
-        # Ensure password was submitted
-        elif not request.form.get("password"):
-            return apology("must provide password", 400)
-
-        # Setting information passed from user through form
-        username = request.form.get("username")
-        hashed_password = generate_password_hash(request.form.get("password"))
-        confirmation = request.form.get("confirmation")
-
-        # Ensure password are matching
-        if request.form.get("password") != confirmation:
-            return apology("Passwords are no match!", 400)
-
-        # Ensure username does not exist inside database
-        try:
-            new_user = db.execute("INSERT INTO users (username, hash) VALUES(?, ?)", username, hashed_password)
-        except ValueError:
-            return apology("username already exists", 400)
-
-        # Logging in New user
-        session["user_id"] = new_user
         flash("Registered!")
-        # Redirect to home page
-        return redirect("/")
+        return redirect(url_for("login"))
 
-    return render_template("register.html")
-
+    return render_template("/register.html", form=form)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """Log user in"""
-    # Forget any user_id
-    session.clear()
-    # User reached route via POST (as by submitting a form via POST)
-    if request.method == "POST":
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
 
-        # Ensure username was submitted
-        if not request.form.get("username"):
-            return apology("must provide username", 403)
+    form = LoginForm()
+    if form.validate_on_submit():
+        
+        user = User.query.filter_by(username=form.username.data).first()
+        
+        if user is None or not user.check_password(form.password.data):
+            return apology("Invalid username or password", 403)
+        
+        login_user(user)
+        flash('Welcome!')
+        
+        return redirect(url_for("index"))
+    
+    return render_template("/login.html", form=form)
 
-        # Ensure password was submitted
-        elif not request.form.get("password"):
-            return apology("must provide password", 403)
-
-        # Query database for username
-        rows = db.execute("SELECT * FROM users WHERE username = ?", request.form.get("username"))
-
-        # Ensure username exists and password is correct
-        if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
-            return apology("invalid username and/or password", 403)
-
-        # Remember which user has logged in
-        session["user_id"] = rows[0]["id"]
-
-        # Redirect user to home page
-        return redirect("/")
-
-    # User reached route via GET (as by clicking a link or via redirect)
-    else:
-        return render_template("login.html")
-
+@app.route('/logout')
+@login_required
+def logout():
+    
+    logout_user()
+    flash('See you soon!')
+    return redirect(url_for('index'))
 
 @app.route("/quote", methods=["GET", "POST"])
 @login_required
 def quote():
     """Get stock quote."""
-    if request.method == "POST":
+    form = QuoteForm()
+
+    if form.validate_on_submit():
 
         # Ensure Symbol was submitted
         if not request.form.get("symbol"):
@@ -129,14 +96,17 @@ def quote():
         except (KeyError, TypeError, ValueError):
             return apology("Invalid ticker symbol", 400)
 
-    return render_template("quote.html")
+    return render_template("quote.html", form=form)
 
 
 @app.route("/buy", methods=["GET", "POST"])
 @login_required
 def buy():
     """Buy shares of stock"""
-    if request.method == "POST":
+    form = BuyForm
+
+    if form.validate_on_submit():
+
         user_id = session["user_id"]
 
         # Ensure Symbol was submitted
@@ -386,15 +356,7 @@ def change_password():
         return render_template("change_password.html")
 
 
-@app.route("/logout")
-def logout():
-    """Log user out"""
 
-    # Forget any user_id
-    session.clear()
-
-    # Redirect user to login form
-    return redirect("/")
 
 
 # Put site on air

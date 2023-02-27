@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Buy
+{% endblock %}
+
+{% block main %}
+
+<form method="post">
+    {{form.hidden_tag()}}
+    {{form.symbol(name = "symbol", class="form-control mx-auto w-auto mb-3")}}
+    {{form.shares(name = "shares", class="form-control mx-auto w-auto mb-3")}}
+    {{ form.submit(class="btn btn-dark") }}
+</form>
+
+{% endblock %}
