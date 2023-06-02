@@ -1,2 +1,0 @@
-Work-in-progress
-Utilizando conhecimento aprendido durante e após a conclusão do curso para remover as dependências automatizadas do banco de dados (biblioteca CS50) e utlizar apenas classes e recursos da linguagem Python.

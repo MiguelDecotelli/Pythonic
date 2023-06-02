@@ -26,8 +26,6 @@ def convert_numbers(minutes):
 
 def sub(a, b):
     return a - b
-
-
     
 
 if __name__ == '__main__':
