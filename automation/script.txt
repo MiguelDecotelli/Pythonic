@@ -1,0 +1,9 @@
+nano yt.sh
+
+#!/bin/zsh
+
+cd /home/jagga/Documentos/Projects/Pythonic/automation/youtube_downloader
+
+python youtube.py $1
+
+zsh yt.sh "link"
